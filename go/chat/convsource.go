@@ -196,6 +196,11 @@ func (s *RemoteConversationSource) GetMessagesWithRemotes(ctx context.Context,
 	return s.boxer.UnboxMessages(ctx, msgs, conv)
 }
 
+func (s *RemoteConversationSource) Expunge(ctx context.Context,
+	convID chat1.ConversationID, uid gregor1.UID, expunge chat1.Expunge) error {
+	return nil
+}
+
 type conversationLock struct {
 	refs, shares int
 	trace        string
@@ -554,10 +559,12 @@ func (s *HybridConversationSource) Pull(ctx context.Context, convID chat1.Conver
 					s.Debug(ctx, "Pull: skipping mark as read call")
 				}
 			}
+			s.Debug(ctx, "@@@ Pull: pre-process %v messages\n%v", len(thread.Messages), chat1.MessageUnboxedDebugLines(thread.Messages))
 			// Run post process stuff
 			if err = s.postProcessThread(ctx, uid, conv, &thread, query, nil, true); err != nil {
 				return thread, rl, err
 			}
+			s.Debug(ctx, "@@@ Pull: post-processed %v messages\n%v", len(thread.Messages), chat1.MessageUnboxedDebugLines(thread.Messages))
 			return thread, rl, nil
 		}
 		s.Debug(ctx, "Pull: cache miss: err: %s", err.Error())
@@ -600,10 +607,13 @@ func (s *HybridConversationSource) Pull(ctx context.Context, convID chat1.Conver
 		s.Debug(ctx, "Pull: unable to commit thread locally: convID: %s uid: %s", convID, uid)
 	}
 
+	s.Debug(ctx, "@@@ Pull: pre-process %v messages\n%v", len(thread.Messages), chat1.MessageUnboxedDebugLines(thread.Messages))
+
 	// Run post process stuff
 	if err = s.postProcessThread(ctx, uid, unboxConv, &thread, query, nil, true); err != nil {
 		return thread, rl, err
 	}
+	s.Debug(ctx, "@@@ Pull: post-processed %v messages\n%v", len(thread.Messages), chat1.MessageUnboxedDebugLines(thread.Messages))
 	return thread, rl, nil
 }
 
@@ -882,6 +892,30 @@ func (s *HybridConversationSource) GetMessagesWithRemotes(ctx context.Context,
 
 	sort.Sort(ByMsgID(res))
 	return res, nil
+}
+
+// Expunge from storage and maybe notify the gui of staleness
+func (s *HybridConversationSource) Expunge(ctx context.Context,
+	convID chat1.ConversationID, uid gregor1.UID, expunge chat1.Expunge) (err error) {
+	defer s.Trace(ctx, func() error { return err }, "Expunge")()
+	s.Debug(ctx, "Expunge: convID: %s uid: %s upto: %v", convID, uid, expunge.Upto)
+
+	// @@@ TODO might this deadlock because of SendChatStaleNotifications?
+	s.lockTab.Acquire(ctx, uid, convID)
+	defer s.lockTab.Release(ctx, uid, convID)
+
+	mergeRes, err := s.storage.Expunge(ctx, convID, uid, expunge)
+	if err != nil {
+		return err
+	}
+	if mergeRes.DeletedHistory {
+		supdate := []chat1.ConversationStaleUpdate{chat1.ConversationStaleUpdate{
+			ConvID:     convID,
+			UpdateType: chat1.StaleUpdateType_CLEAR,
+		}}
+		s.G().Syncer.SendChatStaleNotifications(ctx, uid, supdate, false)
+	}
+	return nil
 }
 
 // Merge with storage and maybe notify the gui of staleness

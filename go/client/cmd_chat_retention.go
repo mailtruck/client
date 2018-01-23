@@ -201,33 +201,7 @@ func (c *CmdChatSetRetention) postPolicy(ctx context.Context, conv *chat1.Conver
 	if err != nil {
 		return err
 	}
-	teamInvolved := (conv.Info.MembersType == chat1.ConversationMembersType_TEAM)
-	teamWide := teamInvolved && !setChannel
-
-	promptText := fmt.Sprintf("Set the conversation retention policy?\nHit Enter, or Ctrl-C to cancel.")
-	if teamInvolved {
-		promptText = fmt.Sprintf("Set the channel retention policy?\nHit Enter, or Ctrl-C to cancel.")
-	}
-	if teamWide {
-		promptText = fmt.Sprintf("Set the team-wide retention policy?\nHit Enter, or Ctrl-C to cancel.")
-	}
-	_, err = c.G().UI.GetTerminalUI().Prompt(PromptDescriptorChatSetRetention, promptText)
-	if err != nil {
-		return err
-	}
-
-	if teamWide {
-		teamID, err := keybase1.TeamIDFromString(conv.Info.Triple.Tlfid.String())
-		if err != nil {
-			return err
-		}
-		return lcli.SetTeamRetentionLocal(ctx, chat1.SetTeamRetentionLocalArg{
-			TeamID: teamID,
-			Policy: policy})
-	}
-	return lcli.SetConvRetentionLocal(ctx, chat1.SetConvRetentionLocalArg{
-		ConvID: conv.Info.Id,
-		Policy: policy})
+	return postRetentionPolicy(ctx, lcli, c.G().UI.GetTerminalUI(), conv, policy, setChannel, true /*doPrompt*/)
 }
 
 // Show a non-team conv policy

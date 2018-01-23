@@ -16,18 +16,6 @@ type supersedesTransform interface {
 		conv types.UnboxConversationInfo, uid gregor1.UID, originalMsgs []chat1.MessageUnboxed) ([]chat1.MessageUnboxed, error)
 }
 
-type nullSupersedesTransform struct {
-}
-
-func (t nullSupersedesTransform) Run(ctx context.Context,
-	conv chat1.Conversation, uid gregor1.UID, originalMsgs []chat1.MessageUnboxed) ([]chat1.MessageUnboxed, error) {
-	return originalMsgs, nil
-}
-
-func newNullSupersedesTransform() nullSupersedesTransform {
-	return nullSupersedesTransform{}
-}
-
 type getMessagesFunc func(context.Context, types.UnboxConversationInfo, gregor1.UID, []chat1.MessageID) ([]chat1.MessageUnboxed, error)
 
 type basicSupersedesTransform struct {
@@ -36,6 +24,8 @@ type basicSupersedesTransform struct {
 
 	messagesFunc getMessagesFunc
 }
+
+var _ supersedesTransform = (*basicSupersedesTransform)(nil)
 
 func newBasicSupersedesTransform(g *globals.Context) *basicSupersedesTransform {
 	return &basicSupersedesTransform{
@@ -119,7 +109,7 @@ func (t *basicSupersedesTransform) Run(ctx context.Context,
 
 	// MessageIDs that supersede
 	var superMsgIDs []chat1.MessageID
-	// Map from MessageIDs to their superseder messages
+	// Map from a MessageID to the message that supersedes it
 	smap := make(map[chat1.MessageID]chat1.MessageUnboxed)
 
 	// Collect all superseder messages for messages in the current thread view
@@ -180,7 +170,11 @@ func (t *basicSupersedesTransform) Run(ctx context.Context,
 					newMsgs = append(newMsgs, *newMsg)
 				}
 			} else {
-				newMsgs = append(newMsgs, msg)
+				if msg.IsValidFull() {
+					newMsgs = append(newMsgs, msg)
+				}
+				// Drop the message. It has been deleted locally but not superseded by anything.
+				// Could be a delete-history or retention expunge.
 			}
 		} else {
 			newMsgs = append(newMsgs, msg)
