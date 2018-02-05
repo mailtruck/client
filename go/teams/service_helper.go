@@ -460,6 +460,8 @@ func RemoveMember(ctx context.Context, g *libkb.GlobalContext, teamname, usernam
 	if err != nil {
 		if err == errInviteRequired {
 			inviteRequired = true
+		} else if err == errUserDeleted {
+			// no op
 		} else {
 			return err
 		}
@@ -692,6 +694,7 @@ func ChangeRoles(ctx context.Context, g *libkb.GlobalContext, teamname string, r
 }
 
 var errInviteRequired = errors.New("invite required for username")
+var errUserDeleted = errors.New("user is deleted")
 
 func loadUserVersionPlusByUsername(ctx context.Context, g *libkb.GlobalContext, username string) (libkb.NormalizedUsername, keybase1.UserVersion, error) {
 	// need username here as `username` parameter might be social assertion, also username
@@ -753,11 +756,15 @@ func loadUserVersionByUIDCheckUsername(ctx context.Context, g *libkb.GlobalConte
 		return keybase1.UserVersion{}, libkb.BadUsernameError{N: un}
 	}
 
+	uv := NewUserVersion(upak.Current.Uid, upak.Current.EldestSeqno)
+	if upak.Current.Status == keybase1.StatusCode_SCDeleted {
+		return uv, errUserDeleted
+	}
 	if len(upak.Current.PerUserKeys) == 0 {
-		return NewUserVersion(upak.Current.Uid, upak.Current.EldestSeqno), errInviteRequired
+		return uv, errInviteRequired
 	}
 
-	return NewUserVersion(upak.Current.Uid, upak.Current.EldestSeqno), nil
+	return uv, nil
 }
 
 func reqFromRole(uv keybase1.UserVersion, role keybase1.TeamRole) (keybase1.TeamChangeReq, error) {
