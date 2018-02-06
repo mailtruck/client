@@ -458,13 +458,15 @@ func RemoveMember(ctx context.Context, g *libkb.GlobalContext, teamname, usernam
 	var inviteRequired bool
 	uv, err := loadUserVersionByUsername(ctx, g, username)
 	if err != nil {
-		if err == errInviteRequired {
+		switch err {
+		case errInviteRequired:
 			inviteRequired = true
-		} else if err == errUserDeleted {
-			// no op
-		} else {
+		case errUserDeleted: // no-op
+		default:
 			return err
 		}
+		g.Log.CDebugf(ctx, "loadUserVersionByUsername(%s) returned %v,%q", username, uv, err)
+		err = nil
 	}
 
 	return RetryOnSigOldSeqnoError(ctx, g, func(ctx context.Context, _ int) error {
