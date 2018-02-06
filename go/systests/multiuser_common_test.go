@@ -529,6 +529,10 @@ func (u *smuUser) getPrimaryGlobalContext() *libkb.GlobalContext {
 	return u.primaryDevice().tctx.G
 }
 
+func (u *smuUser) setUIDMapperNoCachingMode(enabled bool) {
+	u.getPrimaryGlobalContext().UIDMapper.SetTestingNoCachingMode(enabled)
+}
+
 func (u *smuUser) loginAfterReset(numClones int) *smuDeviceWrapper {
 	return u.loginAfterResetHelper(numClones, true)
 }

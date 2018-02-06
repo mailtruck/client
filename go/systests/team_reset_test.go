@@ -168,11 +168,8 @@ func TestTeamDelete(t *testing.T) {
 
 	// Disable UIDMapper cache to be able to see current state of
 	// Active/Inactive for members.
-	for _, user := range []*smuUser{bob, cam} {
-		for _, device := range user.devices {
-			device.tctx.G.UIDMapper.SetTestingNoCachingMode(true)
-		}
-	}
+	bob.setUIDMapperNoCachingMode(true)
+	cam.setUIDMapperNoCachingMode(true)
 
 	bob.assertMemberInactive(team, ann)
 	bob.assertMemberActive(team, cam)
@@ -198,12 +195,8 @@ func TestTeamReset(t *testing.T) {
 	// Note that ann (the admin) has a UIDMapper that should get pubsub updates
 	// since she is an admin for the team in question. cam won't get those
 	// pubsub updates
-	users := []*smuUser{bob, cam}
-	for _, user := range users {
-		for _, device := range user.devices {
-			device.tctx.G.UIDMapper.SetTestingNoCachingMode(true)
-		}
-	}
+	bob.setUIDMapperNoCachingMode(true)
+	cam.setUIDMapperNoCachingMode(true)
 
 	team := ann.createTeam([]*smuUser{bob, cam})
 	divDebug(ctx, "team created (%s)", team.name)
@@ -795,11 +788,8 @@ func TestTeamOpenReset(t *testing.T) {
 	bob.signup()
 	divDebug(ctx, "Signed up bob (%s)", bob.username)
 
-	for _, user := range []*smuUser{ann, bob} {
-		for _, device := range user.devices {
-			device.tctx.G.UIDMapper.SetTestingNoCachingMode(true)
-		}
-	}
+	ann.setUIDMapperNoCachingMode(true)
+	bob.setUIDMapperNoCachingMode(true)
 
 	team := ann.createTeam([]*smuUser{bob})
 	divDebug(ctx, "team created (%s)", team.name)
