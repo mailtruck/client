@@ -27,7 +27,8 @@ func TestAccountDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := libkb.LoadUser(libkb.NewLoadUserByNameArg(tc.G, fu.Username))
+	arg := libkb.NewLoadUserByNameArg(tc.G, fu.Username).WithFailWhenDeleted()
+	_, err := libkb.LoadUser(arg)
 	if err == nil {
 		t.Fatal("no error loading deleted user")
 	}

@@ -26,6 +26,7 @@ type LoadUserArg struct {
 	cachedOnly               bool // only return cached data (StaleOK should be true as well)
 	loginContext             LoginContext
 	abortIfSigchainUnchanged bool
+	failWhenDeleted          bool
 	resolveBody              *jsonw.Wrapper // some load paths plumb this through
 
 	// NOTE: We used to have these feature flags, but we got rid of them, to
@@ -178,6 +179,11 @@ func (arg LoadUserArg) WithForceReload() LoadUserArg {
 	return arg
 }
 
+func (arg LoadUserArg) WithFailWhenDeleted() LoadUserArg {
+	arg.failWhenDeleted = true
+	return arg
+}
+
 func (arg *LoadUserArg) WithLogTag() context.Context {
 	ctx := WithLogTag(arg.GetNetContext(), "LU")
 	arg.netContext = ctx
@@ -315,6 +321,10 @@ func LoadUser(arg LoadUserArg) (ret *User, err error) {
 	ret, refresh, err = loadUser(ctx, arg.G(), arg.uid, resolveBody, sigHints, arg.forceReload, arg.merkleLeaf)
 	if err != nil {
 		return nil, err
+	}
+
+	if arg.failWhenDeleted && ret.status == keybase1.StatusCode_SCDeleted {
+		return nil, DeletedError{}
 	}
 
 	ret.sigHints = sigHints
