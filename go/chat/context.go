@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/keybase/client/go/chat/globals"
+	"github.com/keybase/client/go/chat/types"
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/logger"
 	"github.com/keybase/client/go/protocol/keybase1"
@@ -18,11 +19,13 @@ type keyfinderKey int
 type identifyNotifierKey int
 type chatTrace int
 type identifyModeKey int
+type upakfinderKey int
 
 var kfKey keyfinderKey
 var inKey identifyNotifierKey
 var chatTraceKey chatTrace
 var identModeKey identifyModeKey
+var upKey upakfinderKey
 
 type identModeData struct {
 	mode   keybase1.TLFIdentifyBehavior
@@ -54,6 +57,16 @@ func CtxKeyFinder(ctx context.Context, g *globals.Context) KeyFinder {
 		return kf
 	}
 	return NewKeyFinder(g)
+}
+
+func CtxUPAKFinder(ctx context.Context, g *globals.Context) types.UPAKFinder {
+	var up types.UPAKFinder
+	var ok bool
+	val := ctx.Value(upKey)
+	if up, ok = val.(types.UPAKFinder); ok {
+		return up
+	}
+	return NewCachingUPAKFinder(g)
 }
 
 func CtxIdentifyNotifier(ctx context.Context) *IdentifyNotifier {
@@ -104,6 +117,10 @@ func Context(ctx context.Context, g *globals.Context, mode keybase1.TLFIdentifyB
 	val := res.Value(kfKey)
 	if _, ok := val.(KeyFinder); !ok {
 		res = context.WithValue(res, kfKey, NewKeyFinder(g))
+	}
+	val = res.Value(upKey)
+	if _, ok := val.(types.UPAKFinder); !ok {
+		res = context.WithValue(res, upKey, NewCachingUPAKFinder(g))
 	}
 	res = context.WithValue(res, inKey, notifier)
 	res = CtxAddLogTags(res, g.GetEnv())
